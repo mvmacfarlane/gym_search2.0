@@ -87,7 +87,10 @@ class SearchEnv(gym.Env):
     self.final_probabilities = []
     self.final_states = []
     self.final_MC_estimates = []
+<<<<<<< HEAD
     self.final_MC_variance = []
+=======
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
 
     
 
@@ -107,6 +110,7 @@ class SearchEnv(gym.Env):
 
         self.final_probabilities.append(probabilities)
 
+<<<<<<< HEAD
         #huh we have we got too values here?
         val,var = self.rollout(iterf =self.mc_sims,random_rollout = False,printy = True)
         #val2 = self.rollout(iterf =self.mc_sims,random_rollout = True)
@@ -114,6 +118,12 @@ class SearchEnv(gym.Env):
 
         self.final_MC_estimates.append(val)
         self.final_MC_variance.append(var)
+=======
+        val = self.rollout(iterf =self.mc_sims,random_rollout = False)
+        val2 = self.rollout(iterf =self.mc_sims,random_rollout = True)
+
+        self.final_MC_estimates.append(val)
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
 
     
     #reseting the current path
@@ -186,7 +196,10 @@ class SearchEnv(gym.Env):
       "solution_probabilities":self.final_probabilities,
       "solved":self.solved,
       "MC_estimates":self.final_MC_estimates,
+<<<<<<< HEAD
       "MC_variance":self.final_MC_variance,
+=======
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
 
     }
 
@@ -231,7 +244,10 @@ class SearchEnv(gym.Env):
     self.final_probabilities = []
     self.final_states = []
     self.final_MC_estimates = []
+<<<<<<< HEAD
     self.final_MC_variance = []
+=======
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
 
     #the ability to alter the number of attempts which I like quite a bit
     if number_of_attempts != False:
@@ -445,14 +461,22 @@ class SearchEnv(gym.Env):
 
     
 
+<<<<<<< HEAD
     value_estimate,_ = self.rollout(iterf =1,random_rollout = True)
+=======
+    value_estimate = self.rollout(iterf =1,random_rollout = True)
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
 
     for update in self.update_embeddings:
       update(state,value_estimate)
 
 
 
+<<<<<<< HEAD
   def rollout(self,iterf = 1,random_rollout = True,printy = False):
+=======
+  def rollout(self,iterf = 1,random_rollout = True):
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
 
     total_rewards = iterf*[0]
     current_reward = 0
@@ -470,7 +494,10 @@ class SearchEnv(gym.Env):
 
       sub_env = deepcopy(self.sub_env)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
       while not done:
 
         if not random_rollout:
@@ -479,6 +506,7 @@ class SearchEnv(gym.Env):
           m = Categorical(probabilities)
           action = int(m.sample().item())
         else:
+<<<<<<< HEAD
           action = random.randint(0, self.sub_env.action_space.n-1)
 
         #This needs to be updated!
@@ -486,6 +514,12 @@ class SearchEnv(gym.Env):
         
         state,reward_sub,done, _  = sub_env.step(action) 
         
+=======
+          action = random.randint(0, self.sub_env.action_space.n-1)   #hardcoded , sort at some point
+
+        #This needs to be updated!
+        state,reward_sub,done, _  = sub_env.step(action) 
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
         depth += 1
         
 
@@ -500,6 +534,7 @@ class SearchEnv(gym.Env):
 
         total_reward += reward_sub
 
+<<<<<<< HEAD
 
 
       total_rewards[i] = total_reward
@@ -510,6 +545,15 @@ class SearchEnv(gym.Env):
 
 
     return mean_total_reward,var_total_reward
+=======
+      total_rewards[i] = total_reward
+
+    mean_total_reward = sum(total_rewards)/len(total_rewards)
+
+
+
+    return mean_total_reward
+>>>>>>> 6db71b25b6acc5c08a0745241f0b9f4621c23c9e
 
 
 
