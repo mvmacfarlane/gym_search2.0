@@ -108,7 +108,11 @@ class SearchEnv(gym.Env):
         self.final_probabilities.append(probabilities)
 
         #huh we have we got too values here?
-        value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = False,printy = True)
+        if self.agent.policy_weighting == 0:
+          value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = True,printy = True)
+        else:
+          value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = False,printy = True)
+
         #val2 = self.rollout(iterf =self.mc_sims,random_rollout = True)
 
 
