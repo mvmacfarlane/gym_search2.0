@@ -108,12 +108,12 @@ class SearchEnv(gym.Env):
         self.final_probabilities.append(probabilities)
 
         #huh we have we got too values here?
-        val,var = self.rollout(iterf =self.mc_sims,random_rollout = False,printy = True)
+        value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = False,printy = True)
         #val2 = self.rollout(iterf =self.mc_sims,random_rollout = True)
 
 
-        self.final_MC_estimates.append(val)
-        self.final_MC_variance.append(var)
+        self.final_MC_estimates.append(value_estimates)
+        self.final_MC_variance.append(0)
 
     
     #reseting the current path
@@ -445,7 +445,10 @@ class SearchEnv(gym.Env):
 
     
 
-    value_estimate,_ = self.rollout(iterf =1,random_rollout = True)
+    value_estimates = self.rollout(iterf =1,random_rollout = True)
+
+    value_estimate = sum(value_estimates)/len(value_estimates)
+
 
     for update in self.update_embeddings:
       update(state,value_estimate)
@@ -503,12 +506,10 @@ class SearchEnv(gym.Env):
 
       total_rewards[i] = total_reward
 
-    mean_total_reward = sum(total_rewards)/len(total_rewards)
-    var_total_reward = sum((i - mean_total_reward) ** 2 for i in total_rewards) / len(total_rewards)
 
 
 
-    return mean_total_reward,var_total_reward
+    return total_rewards
 
 
 
