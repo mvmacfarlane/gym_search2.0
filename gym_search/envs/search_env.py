@@ -29,7 +29,7 @@ class SearchEnv(gym.Env):
   #think I can get rid of this, can't remember what it is for
   metadata = {'render.modes': ['human']}
 
-  def __init__(self,environment,search_budget,reward_shape,action_num,verbose,agent):
+  def __init__(self,environment,search_budget,reward_shape,action_num,verbose,agent,training_mode):
 
     #settings
     self.verbose = verbose
@@ -73,6 +73,8 @@ class SearchEnv(gym.Env):
     self.agent = agent
     self.mc_sims = agent.mc_sims
 
+    self.training_mode = training_mode
+
 
 
 
@@ -80,6 +82,8 @@ class SearchEnv(gym.Env):
     self.add_node_to_tree(state = self.initial_state,reward = 0,action = 0,depth = 0)
     self.nodes_added += 1
     self.expand_location(0)
+
+    
 
 
     #final stuff, really need to think about this at some point
@@ -89,9 +93,21 @@ class SearchEnv(gym.Env):
     self.final_MC_estimates = []
     self.final_MC_variance = []
 
-    
+    self.final_subtrees = []
 
     
+  def all_predecessors(self,graph,node,nodes):
+    nodes.append(node)
+
+    for i in graph.predecessors(node):
+      nodes = nodes + self.all_predecessors(graph,i,[])
+
+    return nodes
+
+  
+
+
+
 
   def step(self, action,probabilities = False ,verbose=True):
 
@@ -105,19 +121,25 @@ class SearchEnv(gym.Env):
         self.final_moves.append(action)
         self.final_states.append(self.Tree.nodes[[self.search_location]].data["embeddings_1"].squeeze(0))
 
+        #
+        #self.final_subtrees.append()
+
         self.final_probabilities.append(probabilities)
 
-        #huh we have we got too values here?
-        if self.agent.policy_weighting == 0:
-          value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = True,printy = True)
-        else:
-          value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = False,printy = True)
+        if self.training_mode:
+          if self.agent.policy_weighting == 0:
+            value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = True,printy = True)
+          else:
+            value_estimates = self.rollout(iterf =self.mc_sims,random_rollout = False,printy = True)
 
-        #val2 = self.rollout(iterf =self.mc_sims,random_rollout = True)
+          #val2 = self.rollout(iterf =self.mc_sims,random_rollout = True)
+          subtree = self.Tree.subgraph(self.all_predecessors(self.Tree,self.search_location,[]))
+
+          self.final_subtrees.append(subtree)
 
 
-        self.final_MC_estimates.append(value_estimates)
-        self.final_MC_variance.append(0)
+          self.final_MC_estimates.append(value_estimates)
+          self.final_MC_variance.append(0)
 
     
     #reseting the current path
@@ -132,7 +154,7 @@ class SearchEnv(gym.Env):
 
     if action == -1:
 
-      state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved)
+      state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
       self.finish(state)
 
 
@@ -154,7 +176,7 @@ class SearchEnv(gym.Env):
 
 
       if done:
-        state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved)
+        state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
         self.finish(state)
 
       else:
@@ -165,7 +187,7 @@ class SearchEnv(gym.Env):
           self.expansions = self.expansions  + 1
 
 
-    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved)
+    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
 
 
     return state,self.reward,self.done_overall ,None
@@ -173,7 +195,7 @@ class SearchEnv(gym.Env):
 
 
 
-  def make_state(self,tree,location,budget,max_score,depth,leaf,current_path,search_budget,solution,solution_states,solution_probs,solved):
+  def make_state(self,tree,location,budget,max_score,depth,leaf,current_path,search_budget,solution,solution_states,solution_probs,solved,solution_subtrees):
 
     state = {
 
@@ -191,6 +213,7 @@ class SearchEnv(gym.Env):
       "solved":self.solved,
       "MC_estimates":self.final_MC_estimates,
       "MC_variance":self.final_MC_variance,
+      "solution_subtrees":self.final_subtrees,
 
     }
 
@@ -241,7 +264,7 @@ class SearchEnv(gym.Env):
     if number_of_attempts != False:
       self.search_budget = number_of_attempts
 
-    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved)
+    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
 
     return state
 
