@@ -92,6 +92,8 @@ class SearchEnv(gym.Env):
     self.final_states = []
     self.final_MC_estimates = []
     self.final_MC_variance = []
+    self.final_state_num = []
+    self.lockin_times = {x:0 for x in range(50)}   #this hardcoded, need to fix this
 
     self.final_subtrees = []
 
@@ -104,15 +106,49 @@ class SearchEnv(gym.Env):
 
     return nodes
 
+  def locked(self,depth,lockin_times):
+
+    i=0
+    while True:
+      if lockin_times[i] == 0:
+        break
+      else:
+        i+=1
+    
+    if depth >= i:
+      return False
+    else:
+      return True
+
+
+
+
   
 
 
 
 
-  def step(self, action,probabilities = False ,verbose=True):
+  def step(self,action,locked,probabilities = False ,verbose=True):
 
-    #print("start:")
-    #start = time.time()
+    #print("Number of Nodes:{}".format(self.Tree.number_of_nodes()))
+    #print(self.current_path)
+
+    #this shouldnt add too much time on
+    if locked:
+      if self.lockin_times[self.depth] == 0:
+        #self.lockin_times[self.depth] = self.plays 
+        #print(".....depth:{}".format(self.depth))
+        #print(".....Number of Nodes:{}".format(self.Tree.number_of_nodes()))
+        #print(".....Plays:{}".format(self.plays))
+
+        #time.sleep(5)
+        self.lockin_times[self.depth] = self.Tree.number_of_nodes()
+    #else:
+      #print("depth:{}".format(self.depth))
+      #print("Number of Nodes:{}".format(self.Tree.number_of_nodes()))
+      #print("Plays:{}".format(self.plays))
+
+
     
     
     #don't think this is going to work for other search proceedures. Only works cause the last route taken for MCTS is by definition the best since it has locked everthing in!
@@ -120,6 +156,7 @@ class SearchEnv(gym.Env):
     if self.search_budget - self.plays == 1:
         self.final_moves.append(action)
         self.final_states.append(self.Tree.nodes[[self.search_location]].data["embeddings_1"].squeeze(0))
+        self.final_state_num.append(self.search_location)
 
         #
         #self.final_subtrees.append()
@@ -154,13 +191,21 @@ class SearchEnv(gym.Env):
 
     if action == -1:
 
-      state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
+      state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees,self.final_state_num)
       self.finish(state)
 
 
     else:
 
+      
       _,reward_sub,done,self.search_location,solved = self.move(self.search_location,action)
+
+      #think about whether we actually do this at some point
+      #if solved and self.locked(self.depth,self.lockin_times):
+      #  print("game should be terminated")
+      #  time.sleep(5)
+
+
 
       
 
@@ -176,7 +221,7 @@ class SearchEnv(gym.Env):
 
 
       if done:
-        state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
+        state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees,self.final_state_num)
         self.finish(state)
 
       else:
@@ -187,15 +232,15 @@ class SearchEnv(gym.Env):
           self.expansions = self.expansions  + 1
 
 
-    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
+    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees,self.final_state_num)
 
 
     return state,self.reward,self.done_overall ,None
 
 
 
-
-  def make_state(self,tree,location,budget,max_score,depth,leaf,current_path,search_budget,solution,solution_states,solution_probs,solved,solution_subtrees):
+  #this doesn't take any parameters so is pretty dumn
+  def make_state(self,tree,location,budget,max_score,depth,leaf,current_path,search_budget,solution,solution_states,solution_probs,solved,solution_subtrees,solution_num):
 
     state = {
 
@@ -214,7 +259,8 @@ class SearchEnv(gym.Env):
       "MC_estimates":self.final_MC_estimates,
       "MC_variance":self.final_MC_variance,
       "solution_subtrees":self.final_subtrees,
-
+      "solution_num":self.final_state_num,
+      "lockin_iterations":self.lockin_times,
     }
 
     return state
@@ -257,6 +303,7 @@ class SearchEnv(gym.Env):
     self.final_moves = []
     self.final_probabilities = []
     self.final_states = []
+    self.final_state_num = []
     self.final_MC_estimates = []
     self.final_MC_variance = []
 
@@ -264,7 +311,7 @@ class SearchEnv(gym.Env):
     if number_of_attempts != False:
       self.search_budget = number_of_attempts
 
-    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees)
+    state = self.make_state(self.Tree,self.search_location,self.search_budget-self.plays,self.max_score,self.depth,self.leaf,self.current_path,self.search_budget,self.final_moves,self.final_states,self.final_probabilities,self.solved,self.final_subtrees,self.final_state_num)
 
     return state
 
