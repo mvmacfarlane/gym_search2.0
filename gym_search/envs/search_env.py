@@ -122,6 +122,7 @@ class SearchEnv(gym.Env):
 
       self.update_state_variables(reward_sub,done,solved)
 
+      #yes so we are done
       if done:
         state = self.make_state()
         self.finish(state)
@@ -352,6 +353,9 @@ class SearchEnv(gym.Env):
 
 
   def finish(self,state):
+
+
+
 
       def set_reward():
         if self.reward_shape:
