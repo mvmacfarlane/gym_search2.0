@@ -262,6 +262,7 @@ class SearchEnv(gym.Env):
 
     embedding_values = [x(state,depth,reward) for x in self.agent.embeddings()]
     embedding_keys = ["embeddings_"+str(i+1) for i,x in enumerate(self.agent.embeddings())]
+    embedding_keys[-1] = "embeddings_static"  #this needs to be temporary
 
     total_values = values+embedding_values
     total_keys = keys + embedding_keys  
