@@ -255,14 +255,13 @@ class SearchEnv(gym.Env):
     reward = torch.tensor([reward],dtype=torch.float32)
     terminal = torch.tensor([0],dtype=torch.float32)
     action_node_nums = torch.tensor([[-1]*self.action_num],dtype=torch.float32)
-    depth = torch.tensor([depth],dtype=torch.float32).unsqueeze(1)
+    depth = torch.tensor([depth],dtype=torch.float32)
 
-    keys = ["state","reward","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate"]
-    values = [state,reward,action,terminal,action_node_nums,torch.zeros(1)]
+    keys = ["state","reward","depth","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate"]
+    values = [state,reward,depth,action,terminal,action_node_nums,torch.zeros(1)]
 
-    embedding_values = [x(state,depth,reward) for x in self.agent.embeddings()]
+    embedding_values = [x(state,depth.unsqueeze(1),reward) for x in self.agent.embeddings()]
     embedding_keys = ["embeddings_"+str(i+1) for i,x in enumerate(self.agent.embeddings())]
-    embedding_keys[-1] = "embeddings_static"  #this needs to be temporary
 
     total_values = values+embedding_values
     total_keys = keys + embedding_keys  
@@ -281,14 +280,14 @@ class SearchEnv(gym.Env):
     terminal = torch.tensor([0]*self.action_num,dtype=torch.float32)
     action_node_nums = torch.tensor([[-1]*self.action_num for i in range(self.action_num)],dtype=torch.float32)
 
-    depth = torch.tensor([depth]*self.action_num,dtype=torch.float32).unsqueeze(1)
+    depth = torch.tensor([depth]*self.action_num,dtype=torch.float32)
 
 
-    keys = ["state","reward","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate"]
-    values = [state,reward,action,terminal,action_node_nums,torch.zeros(self.action_num)]
+    keys = ["state","reward","depth","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate"]
+    values = [state,reward,depth,action,terminal,action_node_nums,torch.zeros(self.action_num)]
 
 
-    embedding_values = [x(state,depth,reward) for x in self.agent.embeddings()]
+    embedding_values = [x(state,depth.unsqueeze(1),reward) for x in self.agent.embeddings()]
     embedding_keys = ["embeddings_"+str(i+1) for i,x in enumerate(self.agent.embeddings())]
 
     total_values = values+embedding_values
