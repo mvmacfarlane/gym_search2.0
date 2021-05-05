@@ -387,7 +387,7 @@ class SearchEnv(gym.Env):
         print("nodes in tree is",self.Tree.number_of_nodes())
 
       #1
-      self.update_graph_embeddings(state)
+      self.update_graph_embeddings(state,True)
 
       #2
       self.reset_sub_game_variables()
@@ -428,7 +428,8 @@ class SearchEnv(gym.Env):
       update(state,value_estimate,self.current_path)
 
 
-  def rollout(self,number_of_rollouts = 1,random_rollout = True):
+  #think we should just stick with a random rollout for now on this one
+  def rollout(self,number_of_rollouts,random_rollout):
 
     total_rewards = number_of_rollouts*[0]
     current_reward = 0
@@ -443,28 +444,20 @@ class SearchEnv(gym.Env):
 
       while not done:
 
+        #this can be implemented once we start doing policy iteration
+        """
         if not random_rollout:
           
           probabilities = self.agent.predict_policy(state)
           m = Categorical(probabilities)
           action = int(m.sample().item())
-        else:
-          action = random.randint(0, self.sub_env.action_space.n-1)
+        """
 
-        #This needs to be updated!
+        action = random.randint(0, self.sub_env.action_space.n-1)
+
         new_state,reward_sub,done, _  = sub_env.step(action) 
-        
         depth += 1
 
-        def create_state(state,depth):
-          state = torch.tensor([state],dtype=torch.float32)
-          state = torch.flatten(state,start_dim=1)
-          depth = torch.tensor([depth],dtype=torch.float32).unsqueeze(1)   #this needs to be given the correct depth!
-          state = torch.cat((state,depth),dim = 1)
-
-          return updated_state
-
-        state = create_state(new_state,depth)
 
         total_reward += reward_sub
 
