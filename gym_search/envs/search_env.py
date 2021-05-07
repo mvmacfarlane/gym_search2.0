@@ -69,6 +69,7 @@ class SearchEnv(gym.Env):
     self.best_actions = []
     self.expansions = 0
     self.solved = False
+    self.last_added = False
 
     #will need to think about the differences of allowing this to normal open ai envs
     self.agent = agent
@@ -80,6 +81,7 @@ class SearchEnv(gym.Env):
     self.add_node_to_tree(state = self.initial_state,reward = 0,action = 0,depth = 0)
     self.nodes_added += 1  #surely this should be taken care of in the add node to tree function
     self.expand_location(0)
+    
 
     #end of search data to use for training
     self.final_probabilities = []
@@ -87,6 +89,10 @@ class SearchEnv(gym.Env):
     self.final_state_num = []
     
     self.lockin_times = {x:0 for x in range(self.sub_env.max_steps)}   #this matters for generating our probability scores and subtrees
+
+    state = self.make_state()
+    state["current_path"] = [0]
+    self.update_graph_embeddings(state,True)
 
     
 
@@ -126,6 +132,7 @@ class SearchEnv(gym.Env):
       if done:
         state = self.make_state()
         self.finish(state)
+        self.last_added = False
 
       else:
         self.reward = 0   #what even is the point of this
@@ -178,6 +185,8 @@ class SearchEnv(gym.Env):
       self.search_budget = number_of_attempts
 
     state = self.make_state()
+    state["current_path"] = [0]
+    self.update_graph_embeddings(state,True)
 
     return state
 
@@ -316,6 +325,7 @@ class SearchEnv(gym.Env):
       "MC_estimates":self.final_MC_estimates,
       "solution_num":self.final_state_num,
       "lockin_iterations":self.lockin_times,
+      "last_added":self.last_added,
     }
 
     return state
@@ -328,6 +338,7 @@ class SearchEnv(gym.Env):
     rewards = []
     dones = []
     actions = [i for i in range(self.sub_env.action_space.n)]
+
 
     for action in range(self.sub_env.action_space.n):
 
@@ -350,6 +361,7 @@ class SearchEnv(gym.Env):
 
     new = torch.tensor([nodes_to_add],dtype=torch.float32)
     self.Tree.nodes[[root]].data['action_node_nums'] = new
+    self.last_added = nodes_to_add
 
 
   def finish(self,state):
@@ -423,9 +435,9 @@ class SearchEnv(gym.Env):
       value_estimate = sum(value_estimates)/len(value_estimates)
     else:
       value_estimate = 0
-
+ 
     for update in self.agent.update_embeddings():
-      update(state,value_estimate,self.current_path)
+      update(state,value_estimate,state["current_path"],state["last_added"])
 
 
   #think we should just stick with a random rollout for now on this one
