@@ -366,9 +366,6 @@ class SearchEnv(gym.Env):
 
   def finish(self,state):
 
-
-
-
       def set_reward():
         if self.reward_shape:
           if self.max_score != None:
@@ -437,7 +434,18 @@ class SearchEnv(gym.Env):
       value_estimate = 0
  
     for update in self.agent.update_embeddings():
-      update(state,value_estimate,state["current_path"],state["last_added"])
+
+      nodes_to_update = state["current_path"]
+
+      if state["last_added"] != False:
+        nodes_to_update =  nodes_to_update + state["last_added"]
+
+      nodes_to_update.reverse()
+      nodes_to_update = [[x] for x in nodes_to_update]
+      
+      update(state,value_estimate,nodes_to_update)
+
+      
 
 
   #think we should just stick with a random rollout for now on this one
