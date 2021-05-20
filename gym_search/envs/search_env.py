@@ -131,7 +131,7 @@ class SearchEnv(gym.Env):
       #yes so we are done
       if done:
         state = self.make_state()
-        self.finish(state)
+        self.finish(state,done)
         self.last_added = False
 
       else:
@@ -286,6 +286,7 @@ class SearchEnv(gym.Env):
     action = torch.tensor(action,dtype=torch.float32)
     reward = torch.tensor(reward,dtype=torch.float32)
 
+
     terminal = torch.tensor([0]*self.action_num,dtype=torch.float32)
     action_node_nums = torch.tensor([[-1]*self.action_num for i in range(self.action_num)],dtype=torch.float32)
 
@@ -364,7 +365,7 @@ class SearchEnv(gym.Env):
     self.last_added = nodes_to_add
 
 
-  def finish(self,state):
+  def finish(self,state,game_complete=False):
 
       def set_reward():
         if self.reward_shape:
@@ -396,7 +397,11 @@ class SearchEnv(gym.Env):
         print("nodes in tree is",self.Tree.number_of_nodes())
 
       #1
-      self.update_graph_embeddings(state,True)
+      if game_complete:
+        self.update_graph_embeddings(state,False)
+      else:
+        self.update_graph_embeddings(state,True)
+
 
       #2
       self.reset_sub_game_variables()
@@ -447,7 +452,7 @@ class SearchEnv(gym.Env):
 
       
 
-
+  #I worry that this is giving incorrect values
   #think we should just stick with a random rollout for now on this one
   def rollout(self,number_of_rollouts,random_rollout):
 
