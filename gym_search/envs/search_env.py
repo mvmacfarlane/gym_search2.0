@@ -130,6 +130,8 @@ class SearchEnv(gym.Env):
 
       #yes so we are done
       if done:
+        self.expand_location(self.search_location,terminal=True)
+        self.expansions = self.expansions  + 1
         state = self.make_state()
         self.finish(state,done)
         self.last_added = False
@@ -266,8 +268,8 @@ class SearchEnv(gym.Env):
     action_node_nums = torch.tensor([[-1]*self.action_num],dtype=torch.float32)
     depth = torch.tensor([depth],dtype=torch.float32)
 
-    keys = ["state","reward","depth","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate"]
-    values = [state,reward,depth,action,terminal,action_node_nums,torch.zeros(1)]
+    keys = ["state","reward","depth","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate","Buffer"]
+    values = [state,reward,depth,action,terminal,action_node_nums,torch.zeros(1),torch.zeros(1)]
 
     embedding_values = [x(state,depth.unsqueeze(1),reward) for x in self.agent.embeddings()]
     embedding_keys = ["embeddings_"+str(i+1) for i,x in enumerate(self.agent.embeddings())]
@@ -280,7 +282,7 @@ class SearchEnv(gym.Env):
     self.Tree.add_nodes(1,embedding_dict)
 
 
-  def add_nodes_to_tree(self,state,reward,action,depth):
+  def add_nodes_to_tree(self,state,reward,action,depth,buffer = False):
 
     state = torch.tensor(state,dtype=torch.float32)
     action = torch.tensor(action,dtype=torch.float32)
@@ -292,9 +294,14 @@ class SearchEnv(gym.Env):
 
     depth = torch.tensor([depth]*self.action_num,dtype=torch.float32)
 
+    if buffer:
+      buffer = torch.ones(self.action_num)
+    else:
+      buffer = torch.zeros(self.action_num)
 
-    keys = ["state","reward","depth","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate"]
-    values = [state,reward,depth,action,terminal,action_node_nums,torch.zeros(self.action_num)]
+
+    keys = ["state","reward","depth","action","terminal","action_node_nums","Monte_Carlo_Value_Estimate","Buffer"]
+    values = [state,reward,depth,action,terminal,action_node_nums,torch.zeros(self.action_num),buffer]
 
 
     embedding_values = [x(state,depth.unsqueeze(1),reward) for x in self.agent.embeddings()]
@@ -332,37 +339,75 @@ class SearchEnv(gym.Env):
     return state
 
 
+  #this seems very long and messy, don't like this at all
+  def expand_location(self,root,terminal=False):
 
-  def expand_location(self,root):
+    if terminal:
 
-    states = []
-    rewards = []
-    dones = []
-    actions = [i for i in range(self.sub_env.action_space.n)]
-
-
-    for action in range(self.sub_env.action_space.n):
-
-      new_env = deepcopy(self.sub_env) 
-      state,reward,done, _ = new_env.step(action)
-
-      states.append(state)
-      rewards.append(reward)
-      dones.append(done)
-
-  
-    self.add_nodes_to_tree(states,rewards,actions,self.depth+1)
-
-    roots = [root for i in range(self.sub_env.action_space.n)]
-    nodes_to_add = [self.nodes_added + i for i in range(self.sub_env.action_space.n)] 
+      states = []
+      rewards = []
+      dones = []
+      actions = [i for i in range(self.sub_env.action_space.n)]
 
 
-    self.Tree.add_edges(nodes_to_add,roots)
-    self.nodes_added = self.nodes_added + self.sub_env.action_space.n 
+      for action in range(self.sub_env.action_space.n):
 
-    new = torch.tensor([nodes_to_add],dtype=torch.float32)
-    self.Tree.nodes[[root]].data['action_node_nums'] = new
-    self.last_added = nodes_to_add
+        new_env = deepcopy(self.sub_env) 
+        state,reward,done, _ = new_env.step(action)
+
+        states.append(np.zeros(state.shape))
+        rewards.append(0)
+        dones.append(False)
+
+
+      self.add_nodes_to_tree(states,rewards,actions,self.depth+1,buffer=True)
+
+      roots = [root for i in range(self.sub_env.action_space.n)]
+      nodes_to_add = [self.nodes_added + i for i in range(self.sub_env.action_space.n)] 
+
+      #here we need to add the edge features that MCTS can make use of!
+      #we really want to delete these nodes since they don't contain any information is there a clever way we can go about this
+      self.Tree.add_edges(nodes_to_add,roots,{'w': torch.tensor([[0,0.25,0], [0,0.25,0],[0,0.25,0], [0,0.25,0]])})
+
+      self.nodes_added = self.nodes_added + self.sub_env.action_space.n 
+
+      new = torch.tensor([nodes_to_add],dtype=torch.float32)
+      self.Tree.nodes[[root]].data['action_node_nums'] = new
+      self.last_added = nodes_to_add
+
+    else:
+
+      states = []
+      rewards = []
+      dones = []
+      actions = [i for i in range(self.sub_env.action_space.n)]
+
+
+      for action in range(self.sub_env.action_space.n):
+
+        new_env = deepcopy(self.sub_env) 
+        state,reward,done, _ = new_env.step(action)
+
+        states.append(state)
+        rewards.append(reward)
+        dones.append(done)
+
+
+    
+      self.add_nodes_to_tree(states,rewards,actions,self.depth+1)
+
+      roots = [root for i in range(self.sub_env.action_space.n)]
+      nodes_to_add = [self.nodes_added + i for i in range(self.sub_env.action_space.n)] 
+
+
+      self.Tree.add_edges(nodes_to_add,roots,{'w': torch.tensor([[0,0.25,0], [0,0.25,0],[0,0.25,0], [0,0.25,0]])})
+      self.nodes_added = self.nodes_added + self.sub_env.action_space.n 
+
+      new = torch.tensor([nodes_to_add],dtype=torch.float32)
+      self.Tree.nodes[[root]].data['action_node_nums'] = new
+      self.last_added = nodes_to_add
+
+
 
 
   def finish(self,state,game_complete=False):
@@ -398,10 +443,17 @@ class SearchEnv(gym.Env):
 
       #1
       if game_complete:
-        self.update_graph_embeddings(state,False)
-      else:
-        self.update_graph_embeddings(state,True)
+        value_estimate = 0
+        self.update_graph_embeddings(state,value_estimate)
 
+      else:
+        value_estimates = self.rollout(number_of_rollouts =1,random_rollout = True)
+        value_estimate = sum(value_estimates)/len(value_estimates)
+
+        self.Tree.nodes[[self.search_location]].data["Monte_Carlo_Value_Estimate"] = torch.Tensor([value_estimate])
+
+        self.update_graph_embeddings(state,value_estimate)
+      
 
       #2
       self.reset_sub_game_variables()
@@ -430,14 +482,8 @@ class SearchEnv(gym.Env):
 
 
     
-  def update_graph_embeddings(self,state,estimate_value = False):
+  def update_graph_embeddings(self,state,value_estimate):
 
-    if estimate_value:
-      value_estimates = self.rollout(number_of_rollouts =1,random_rollout = True)
-      value_estimate = sum(value_estimates)/len(value_estimates)
-    else:
-      value_estimate = 0
- 
     for update in self.agent.update_embeddings():
 
       nodes_to_update = state["current_path"]
@@ -452,8 +498,6 @@ class SearchEnv(gym.Env):
 
       
 
-  #I worry that this is giving incorrect values
-  #think we should just stick with a random rollout for now on this one
   def rollout(self,number_of_rollouts,random_rollout):
 
     total_rewards = number_of_rollouts*[0]
@@ -488,6 +532,11 @@ class SearchEnv(gym.Env):
 
       total_rewards[i] = total_reward
 
+      tensor_to_add = self.Tree.nodes[[self.search_location]].data["embeddings_3"][0]
+      new = torch.Tensor([total_rewards[0],tensor_to_add[1].item(),tensor_to_add[2].item()])
+
+
+      self.Tree.nodes[[self.search_location]].data["embeddings_3"] = new.unsqueeze(0)
 
     return total_rewards
 
