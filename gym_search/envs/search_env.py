@@ -94,6 +94,9 @@ class SearchEnv(gym.Env):
     state["current_path"] = [0]
     self.update_graph_embeddings(state,True)
 
+
+  #check that this always increases the budget by one and add 4 nodes
+
     
 
   def step(self,action,locked,probabilities = False ,verbose=True):
@@ -112,13 +115,24 @@ class SearchEnv(gym.Env):
     self.current_actions.append(action)
 
 
+
+
     if self.search_budget - self.plays == 1:
+      if self.search_location > self.lockin_times[self.depth]:
+        raise Exception("Node added after lock in")
+      else:
+        pass
+        
+
+
+
       self.final_state_num.append(self.search_location)
       self.final_probabilities.append(probabilities)
 
+
     
     
-    #checking if we should return to root
+    #checking if we should return to root (wait a minute does this count as a play, doesnt make any sense, what is this)
     if action == -1:
       state = self.make_state()
       self.finish(state)
@@ -128,8 +142,10 @@ class SearchEnv(gym.Env):
 
       self.update_state_variables(reward_sub,done,solved)
 
+
       #yes so we are done
       if done:
+        
         self.expand_location(self.search_location,terminal=True)
         self.expansions = self.expansions  + 1
         state = self.make_state()
@@ -139,7 +155,7 @@ class SearchEnv(gym.Env):
       else:
         self.reward = 0   #what even is the point of this
 
-        if self.leaf :
+        if self.leaf:
           self.expand_location(self.search_location)
           self.expansions = self.expansions  + 1
 
@@ -272,7 +288,9 @@ class SearchEnv(gym.Env):
     values = [state,reward,depth,action,terminal,action_node_nums,torch.zeros(1),torch.zeros(1)]
 
     embedding_values = [x(state,depth.unsqueeze(1),reward) for x in self.agent.embeddings()]
-    embedding_keys = ["embeddings_"+str(i+1) for i,x in enumerate(self.agent.embeddings())]
+
+    #change this to get the names from the functions themselves
+    embedding_keys = [x.name for x in self.agent.embeddings()]
 
     total_values = values+embedding_values
     total_keys = keys + embedding_keys  
@@ -305,7 +323,8 @@ class SearchEnv(gym.Env):
 
 
     embedding_values = [x(state,depth.unsqueeze(1),reward) for x in self.agent.embeddings()]
-    embedding_keys = ["embeddings_"+str(i+1) for i,x in enumerate(self.agent.embeddings())]
+    #embedding_keys = ["embeddings_"+str(i+1) for i,x in enumerate(self.agent.embeddings())]
+    embedding_keys = [x.name for x in self.agent.embeddings()]
 
     total_values = values+embedding_values
     total_keys = keys + embedding_keys  
@@ -342,8 +361,11 @@ class SearchEnv(gym.Env):
   #this seems very long and messy, don't like this at all
   def expand_location(self,root,terminal=False):
 
-    if terminal:
 
+    
+
+    if terminal:
+      
       states = []
       rewards = []
       dones = []
@@ -374,6 +396,7 @@ class SearchEnv(gym.Env):
       new = torch.tensor([nodes_to_add],dtype=torch.float32)
       self.Tree.nodes[[root]].data['action_node_nums'] = new
       self.last_added = nodes_to_add
+      
 
     else:
 
@@ -411,6 +434,8 @@ class SearchEnv(gym.Env):
 
 
   def finish(self,state,game_complete=False):
+
+      self.current_path.append(self.search_location)
 
       def set_reward():
         if self.reward_shape:
@@ -488,8 +513,11 @@ class SearchEnv(gym.Env):
 
       nodes_to_update = state["current_path"]
 
+      
+
       if state["last_added"] != False:
-        nodes_to_update =  nodes_to_update + state["last_added"]
+        nodes_to_update =  nodes_to_update[:-1] + state["last_added"]
+
 
       nodes_to_update.reverse()
       nodes_to_update = [[x] for x in nodes_to_update]
@@ -508,7 +536,7 @@ class SearchEnv(gym.Env):
       done = False
       
       depth = self.depth
-      state = self.Tree.nodes[[self.search_location]].data["embeddings_1"]
+      #state = self.Tree.nodes[[self.search_location]].data["embeddings_1"]
       sub_env = deepcopy(self.sub_env)
 
       while not done:
@@ -532,11 +560,11 @@ class SearchEnv(gym.Env):
 
       total_rewards[i] = total_reward
 
-      tensor_to_add = self.Tree.nodes[[self.search_location]].data["embeddings_3"][0]
-      new = torch.Tensor([total_rewards[0],tensor_to_add[1].item(),tensor_to_add[2].item()])
+      #tensor_to_add = self.Tree.nodes[[self.search_location]].data["embeddings_3"][0]
+      #new = torch.Tensor([total_rewards[0],tensor_to_add[1].item(),tensor_to_add[2].item()])
 
 
-      self.Tree.nodes[[self.search_location]].data["embeddings_3"] = new.unsqueeze(0)
+      #self.Tree.nodes[[self.search_location]].data["embeddings_3"] = new.unsqueeze(0)
 
     return total_rewards
 
