@@ -94,6 +94,8 @@ class SearchEnv(gym.Env):
     state["current_path"] = [0]
     self.update_graph_embeddings(state,True)
 
+    self.start = time.time()
+
 
   #check that this always increases the budget by one and add 4 nodes
 
@@ -119,6 +121,9 @@ class SearchEnv(gym.Env):
 
     if self.search_budget - self.plays == 1:
       if self.search_location > self.lockin_times[self.depth]:
+        print(self.search_location,flush=True)
+        print(self.lockin_times)
+        print(self.solved)
         raise Exception("Node added after lock in")
       else:
         pass
@@ -160,7 +165,9 @@ class SearchEnv(gym.Env):
           self.expansions = self.expansions  + 1
 
 
+
     state = self.make_state()
+
 
     return state,self.reward,self.done_overall ,None
 
@@ -259,6 +266,8 @@ class SearchEnv(gym.Env):
   
       action = int(action.numpy())
       state,reward,done, _  = self.sub_env.step(action) 
+
+      #full_snapshot = self.sub_env.clone_full_state()
 
       solved = False
 
@@ -361,6 +370,8 @@ class SearchEnv(gym.Env):
   #this seems very long and messy, don't like this at all
   def expand_location(self,root,terminal=False):
 
+    
+
 
     
 
@@ -415,8 +426,6 @@ class SearchEnv(gym.Env):
         rewards.append(reward)
         dones.append(done)
 
-
-    
       self.add_nodes_to_tree(states,rewards,actions,self.depth+1)
 
       roots = [root for i in range(self.sub_env.action_space.n)]
@@ -464,7 +473,6 @@ class SearchEnv(gym.Env):
   
       if self.verbose:
         print("Attempt:"+str(self.plays),"score:"+str(self.reward),"max score:"+str(self.max_score),"length best path:",len(self.best_actions),"Number of expansions:"+str(self.expansions),"Depth:"+str(self.depth))
-        print("nodes in tree is",self.Tree.number_of_nodes())
 
       #1
       if game_complete:
@@ -506,8 +514,11 @@ class SearchEnv(gym.Env):
     self.leaf = (len(self.children) == 0 )
 
 
+
     
   def update_graph_embeddings(self,state,value_estimate):
+
+    start = time.time()
 
     for update in self.agent.update_embeddings():
 
@@ -523,6 +534,7 @@ class SearchEnv(gym.Env):
       nodes_to_update = [[x] for x in nodes_to_update]
       
       update(state,value_estimate,nodes_to_update)
+
 
       
 
@@ -560,9 +572,11 @@ class SearchEnv(gym.Env):
 
       total_rewards[i] = total_reward
 
+
+      #what on earth is this stuff, delete if not nessesary
+
       #tensor_to_add = self.Tree.nodes[[self.search_location]].data["embeddings_3"][0]
       #new = torch.Tensor([total_rewards[0],tensor_to_add[1].item(),tensor_to_add[2].item()])
-
 
       #self.Tree.nodes[[self.search_location]].data["embeddings_3"] = new.unsqueeze(0)
 
